@@ -236,210 +236,267 @@ subroutine avert(TM,T,SGM,SC,STM,ST,MM,I)
     RETURN
 end subroutine avert
 !
+subroutine wofz(xx, yy, wx, wy)
+    ! SIAM J. Numer. Anal. Vol. 7, No. 1, March 1970
+    ! Efficient Computation of the Complex Error Function
+    ! Walter Gautschi 
+    integer                 ::      n, v
+
+    real(8), intent(in)     ::      xx, yy
+    real(8), intent(out)    ::      wx, wy
+
+    real(8) :: s_z, h, x, y
+    complex(8) :: z, w, r_v, s_N, v_n
+
+    complex(8), parameter  :: i=(0.0d0,1.0d0)
+    real(8), parameter      ::  a   =1.12837916709551d0, & 
+                                x_0 =5.33d0, &
+                                y_0 =4.29d0, &
+                                h_0 =1.6d0
+    x = abs(xx)
+    y = abs(yy)
+    z = complex(x,y)
+
+    if (x.lt.x_0.and.y.lt.y_0) then
+            s_z = (1. - y/y_0)*sqrt(1. - (x/x_0)**2)
+            h = h_0*s_z
+            v = int(9 + 21*s_z)
+            r_v = complex(0,0)
+            s_N = complex(0,0)
+            
+            do n = v, 0, -1
+                    r_v = 0.5/(h - i*z + (n+1)*r_v)
+                    s_N = r_v*((2.*h)**n + s_N)
+            end do
+
+            if (abs(h).lt.1e-5) then
+                    w = a*r_v
+            else
+                    w = a*s_N
+            end if
+            wx = realpart(w)
+            wy = imagpart(w)
+    else
+            r_v = complex(0,0)
+            do n = 8, 0, -1
+                    r_v = 0.5/(-i*z + (n+1)*r_v)
+            end do
+            wx = a*realpart(r_v)
+            wy = a*imagpart(r_v)
+    endif
+
+    if (yy.lt.0.0) then
+            wx = 2.0*exp(y*y - x*x)*cos(2.0*x*y) - wx
+            wy = -2.0*exp(y*y - x*x)*sin(2.0*x*y) - wy
+            if (xx.gt.0.0) wy = -wy
+    else
+            if (xx.lt.0.0) wy = -wy
+    end if
+end subroutine wofz
 ! ----------- Fadeeva function ---------------------------------------
 ! - If Y is less than 0.001 call the more efficient PFCN 
-subroutine pfcn(X,Y,U,V,K)
-
-    implicit none
-
-    real(8), intent(in) :: X,Y
-    real(8), intent(inout) :: U,V
-    integer, intent(inout) :: K
-
-    real(8), dimension(10) :: EMN
-    real(8) :: AM,CXP2,CXY2,D,DM,DP,EYP2,EYX,F,P,PI,PI2,SU,SV,SXP2,SXY2, &
-               XNM,XNP,XP2,XY,XY2,Y2
-    integer :: I,IS,N
-
-    PI = 3.14159d0
-    PI2 = 6.28318d0
-    N = 5
-    IS = 0
-
-    IF(Y.GT.0.01)GO TO 40
-    IF(IS.NE.0)GO TO 5
-    IS=1
-    do I=2,N
-        EMN(I)=EXP(-FLOAT(I-1)**2)/PI
-    end do
-5   CONTINUE
-    XY=X/Y
-    IF(1.+X*X.GT.100.*Y*Y)GO TO 30
-    IF(Y.LT.0.001)GO TO 40
-    Y2=Y**2
-    D=X**2+Y2
-    SU=Y/(D*PI)
-    SV=X/(D*PI)
-    DO 10 I=2,N
-    AM=I-1
-    XNP=X-AM
-    XNM=X+AM
-    DP=XNP**2+Y2
-    DM=XNM**2+Y2
-    SU=SU+EMN(I)*Y*(1./DP+1./DM)
-    SV=SV+EMN(I)*(XNP/DP+XNM/DM)
-10  CONTINUE
-    IF(Y.GT.PI)GO TO 20
-    P=2.0
-    IF(Y.EQ.PI)P=1.0
-    XY2=X*Y*2.
-    SXY2=SIN(XY2)
-    CXY2=COS(XY2)
-    XP2=X*PI2
-    SXP2=SIN(XP2)
-    CXP2=COS(XP2)
-    EYP2=EXP(Y*PI2)
-    EYX=EXP(Y2-X**2)
-    D=1.-2.*EYP2*CXP2+EYP2**2
-    SU=SU+P*EYX*(CXY2-EYP2*(CXP2*CXY2+SXP2*SXY2))/D
-    SV=SV-P*EYX*(SXY2+EYP2*(SXP2*CXY2-CXP2*SXY2))/D
-20  U=SU
-    V=SV
-    RETURN
-30  F=1.77245  *Y
-    U=1./((1.+XY**2)*F)
-    V=XY*U
-    RETURN
+!subroutine pfcn(X,Y,U,V,K)
 !
-40  CALL PFCNP(X,Y,U,V,K)
+!    implicit none
 !
-    RETURN
-end subroutine pfcn
+!    real(8), intent(in) :: X,Y
+!    real(8), intent(inout) :: U,V
+!    integer, intent(inout) :: K
 !
-! ----------- Fadeeva function ---------------------------------------
-! - If Y is less than 0.001 this is more efficient than PFCN
-subroutine pfcnp(X,Y,U,V,L)
-
-    implicit none
-
-    real(8), intent(in) :: X,Y
-    real(8), intent(inout) :: U,V
-    integer, intent(inout) :: L
-
-    real(8) :: c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18, &
-               c19,c20,c21,CO,T,T1,W283,W287,Z
-    
-    integer :: I,II,J,K,M
+!    real(8), dimension(10) :: EMN
+!    real(8) :: AM,CXP2,CXY2,D,DM,DP,EYP2,EYX,F,P,PI,PI2,SU,SV,SXP2,SXY2, &
+!               XNM,XNP,XP2,XY,XY2,Y2
+!    integer :: I,IS,N
 !
-!   PFCN YIELDS REAL AND IMAGINARY PART OF THE COMPLEX
-!   PROBABILITY INTEGRAL
+!    PI = 3.14159d0
+!    PI2 = 6.28318d0
+!    N = 5
+!    IS = 0
 !
-    DIMENSION W287(4),W283(4)
-    DATA W283/1.65068,.524648,-.524648,-1.65068/
-    DATA W287/.025883,.256212,.256212,.025883/
-    II=1
-    ASSIGN 244 TO J
-    C5=X
-    C6=Y
-    IF(C5.LT.0.0)GO TO 8
-    IF(C6.LT.0.0)GO TO 287
-    GO TO 11
-8   IF(C6.GE.0.0)GO TO 14
-    ASSIGN 245 TO I
-    GO TO 20
-11  ASSIGN 257 TO I
-    GO TO 46
-14  ASSIGN 255 TO I
-    GO TO 46
-20  Z=C6*C6-C5*C5
-    CO=EXP(Z)
-    C7=CO+CO
-    CO=C5*C6
-    C9=CO+CO
-    C8=-C7*SIN(C9)
-    C7=C7*COS(C9)
-46  C5=ABS(C5)
-    C6=ABS(C6)
-    IF(C5.GE.6.0)GO TO 219
-50  IF(C6.LE.0.5)GO TO 65
-    IF(C6.LE.3.0)GO TO 61
-    IF(C6.GT.6.0)GO TO 219
-    C9=0.5
-    GO TO 73
-61  IF(C6.LE.1.5)GO TO 71
-    C9=0.25
-    GO TO 73
-65  C10=C6
-    C6=0.5
-    ASSIGN 128 TO J
-71  C9=0.09375
-73  C11=0.0
-    C17=0.0
-    C18=0.0
-    ASSIGN 123 TO K
-79  C21=C5-C11
-    C19=C21*C21
-    C20=C6*C6+C19
-    T=C11*C11
-    C19=EXP(-T)/C20*0.31830*C9
-    C17=C19*C6+C17
-    C18=C21*C19+C18
-107 GO TO K,(108,123)
-108 II=3-II
-    IF(II.EQ.1)GO TO 114
-    C11=-C11
-    GO TO 79
-114 IF(-C11-4.0.GT.0.0)GO TO J,(128,244)
-    C11=-C11+C9
-    GO TO 79
-123 II=1
-    ASSIGN 108 TO K
-    C11=C9
-    GO TO 79
-128 C11=C17
-    C12=C18
-    C9=2.0
-    C6=C10-0.5
-    C6=C6+C6
-    C10=C11/2.0
-    C13=(C5*C12+C10-0.56419)*C6
-    C10=C12/2.0
-    C14=(-C5*C11+C10)*C6
-    C17=C11+C13
-    C18=C12+C14
-165 C10=C6/C9
-    C19=C13/2.0
-    C19=C5*C14+C19
-    C15=(C6/2.0*C11+C19)*C10
-    C17=C15+C17
-    T1=C5*C13
-    C19=(C6*C12+C14)/2.0
-    C16=(-T1+C19)*C10
-    C18=C16+C18
-    T1=C17+C15
-    IF((T1-C17).NE.0.0)GO TO 207
-    T1=C18+C16
-    IF((T1-C18).EQ.0.0)GO TO 244
-207 C11=C13
-    C12=C14
-    C13=C15
-    C14=C16
-    C9=C9+1.0
-    GO TO 165
-219 C17=0.0
-    C18=0.0
-    DO 230 M=1,4
-    C12=C5-W283(M)
-    C11=C12*C12
-    C11=C6*C6+C11
-    C11=W287(M)/C11
-    C17=C11*C6+C17
-    C18=C11*C12+C18
-230 CONTINUE
-244 GO TO I,(245,249,255,257)
-245 C8=-C8
-    C18=-C18
-249 C17=C7-C17
-    C18=C8-C18
-255 C18=-C18
-257 U=C17
-    V=C18
-    L=0
-    RETURN
-287 C5=-C5
-    ASSIGN 249 TO I
-    GO TO 20
-end subroutine pfcnp
+!    IF(Y.GT.0.01)GO TO 40
+!    IF(IS.NE.0)GO TO 5
+!    IS=1
+!    do I=2,N
+!        EMN(I)=EXP(-FLOAT(I-1)**2)/PI
+!    end do
+!5   CONTINUE
+!    XY=X/Y
+!    IF(1.+X*X.GT.100.*Y*Y)GO TO 30
+!    IF(Y.LT.0.001)GO TO 40
+!    Y2=Y**2
+!    D=X**2+Y2
+!    SU=Y/(D*PI)
+!    SV=X/(D*PI)
+!    DO 10 I=2,N
+!    AM=I-1
+!    XNP=X-AM
+!    XNM=X+AM
+!    DP=XNP**2+Y2
+!    DM=XNM**2+Y2
+!    SU=SU+EMN(I)*Y*(1./DP+1./DM)
+!    SV=SV+EMN(I)*(XNP/DP+XNM/DM)
+!10  CONTINUE
+!    IF(Y.GT.PI)GO TO 20
+!    P=2.0
+!    IF(Y.EQ.PI)P=1.0
+!    XY2=X*Y*2.
+!    SXY2=SIN(XY2)
+!    CXY2=COS(XY2)
+!    XP2=X*PI2
+!    SXP2=SIN(XP2)
+!    CXP2=COS(XP2)
+!    EYP2=EXP(Y*PI2)
+!    EYX=EXP(Y2-X**2)
+!    D=1.-2.*EYP2*CXP2+EYP2**2
+!    SU=SU+P*EYX*(CXY2-EYP2*(CXP2*CXY2+SXP2*SXY2))/D
+!    SV=SV-P*EYX*(SXY2+EYP2*(SXP2*CXY2-CXP2*SXY2))/D
+!20  U=SU
+!    V=SV
+!    RETURN
+!30  F=1.77245  *Y
+!    U=1./((1.+XY**2)*F)
+!    V=XY*U
+!    RETURN
+!!
+!40  CALL PFCNP(X,Y,U,V,K)
+!!
+!    RETURN
+!end subroutine pfcn
+!!
+!! ----------- Fadeeva function ---------------------------------------
+!! - If Y is less than 0.001 this is more efficient than PFCN
+!subroutine pfcnp(X,Y,U,V,L)
+!
+!    implicit none
+!
+!    real(8), intent(in) :: X,Y
+!    real(8), intent(inout) :: U,V
+!    integer, intent(inout) :: L
+!
+!    real(8) :: c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18, &
+!               c19,c20,c21,CO,T,T1,W283,W287,Z
+!    
+!    integer :: I,II,J,K,M
+!!
+!!   PFCN YIELDS REAL AND IMAGINARY PART OF THE COMPLEX
+!!   PROBABILITY INTEGRAL
+!!
+!    DIMENSION W287(4),W283(4)
+!    DATA W283/1.65068,.524648,-.524648,-1.65068/
+!    DATA W287/.025883,.256212,.256212,.025883/
+!    II=1
+!    ASSIGN 244 TO J
+!    C5=X
+!    C6=Y
+!    IF(C5.LT.0.0)GO TO 8
+!    IF(C6.LT.0.0)GO TO 287
+!    GO TO 11
+!8   IF(C6.GE.0.0)GO TO 14
+!    ASSIGN 245 TO I
+!    GO TO 20
+!11  ASSIGN 257 TO I
+!    GO TO 46
+!14  ASSIGN 255 TO I
+!    GO TO 46
+!20  Z=C6*C6-C5*C5
+!    CO=EXP(Z)
+!    C7=CO+CO
+!    CO=C5*C6
+!    C9=CO+CO
+!    C8=-C7*SIN(C9)
+!    C7=C7*COS(C9)
+!46  C5=ABS(C5)
+!    C6=ABS(C6)
+!    IF(C5.GE.6.0)GO TO 219
+!50  IF(C6.LE.0.5)GO TO 65
+!    IF(C6.LE.3.0)GO TO 61
+!    IF(C6.GT.6.0)GO TO 219
+!    C9=0.5
+!    GO TO 73
+!61  IF(C6.LE.1.5)GO TO 71
+!    C9=0.25
+!    GO TO 73
+!65  C10=C6
+!    C6=0.5
+!    ASSIGN 128 TO J
+!71  C9=0.09375
+!73  C11=0.0
+!    C17=0.0
+!    C18=0.0
+!    ASSIGN 123 TO K
+!79  C21=C5-C11
+!    C19=C21*C21
+!    C20=C6*C6+C19
+!    T=C11*C11
+!    C19=EXP(-T)/C20*0.31830*C9
+!    C17=C19*C6+C17
+!    C18=C21*C19+C18
+!107 GO TO K,(108,123)
+!108 II=3-II
+!    IF(II.EQ.1)GO TO 114
+!    C11=-C11
+!    GO TO 79
+!114 IF(-C11-4.0.GT.0.0)GO TO J,(128,244)
+!    C11=-C11+C9
+!    GO TO 79
+!123 II=1
+!    ASSIGN 108 TO K
+!    C11=C9
+!    GO TO 79
+!128 C11=C17
+!    C12=C18
+!    C9=2.0
+!    C6=C10-0.5
+!    C6=C6+C6
+!    C10=C11/2.0
+!    C13=(C5*C12+C10-0.56419)*C6
+!    C10=C12/2.0
+!    C14=(-C5*C11+C10)*C6
+!    C17=C11+C13
+!    C18=C12+C14
+!165 C10=C6/C9
+!    C19=C13/2.0
+!    C19=C5*C14+C19
+!    C15=(C6/2.0*C11+C19)*C10
+!    C17=C15+C17
+!    T1=C5*C13
+!    C19=(C6*C12+C14)/2.0
+!    C16=(-T1+C19)*C10
+!    C18=C16+C18
+!    T1=C17+C15
+!    IF((T1-C17).NE.0.0)GO TO 207
+!    T1=C18+C16
+!    IF((T1-C18).EQ.0.0)GO TO 244
+!207 C11=C13
+!    C12=C14
+!    C13=C15
+!    C14=C16
+!    C9=C9+1.0
+!    GO TO 165
+!219 C17=0.0
+!    C18=0.0
+!    DO 230 M=1,4
+!    C12=C5-W283(M)
+!    C11=C12*C12
+!    C11=C6*C6+C11
+!    C11=W287(M)/C11
+!    C17=C11*C6+C17
+!    C18=C11*C12+C18
+!230 CONTINUE
+!244 GO TO I,(245,249,255,257)
+!245 C8=-C8
+!    C18=-C18
+!249 C17=C7-C17
+!    C18=C8-C18
+!255 C18=-C18
+!257 U=C17
+!    V=C18
+!    L=0
+!    RETURN
+!287 C5=-C5
+!    ASSIGN 249 TO I
+!    GO TO 20
+!end subroutine pfcnp
 ! ---------------------------------------------------------------------
 !
 subroutine wigner(DAV,D)

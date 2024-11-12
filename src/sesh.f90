@@ -365,7 +365,7 @@ program sesh
 !                     FIND PSI-FUNCTION GIVING PORTER-THOMAS AVERAGE
                     ETA=SQRT((GG(L,I)*EDGG+GNIN)/(2.*GN*EDD))
 !
-                    CALL PFCN(0.0d0,ETA,U,V,KZ)
+                    CALL wofz(0.0d0,ETA,U,V)
 !
                     PSI0=1.77245  *ETA*U
 

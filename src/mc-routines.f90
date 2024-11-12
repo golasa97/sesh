@@ -33,6 +33,7 @@ subroutine musc(AP,UM,A,abundance,BE,PE,eff_temp,NL,AA,chan_rad,GG, &
                WG,WI,WN,X,XI,Y,Z,ZSIR
     integer :: I,IHIST,ITYPE,IZ,J,JL,JX,K,KZ,L,L1,L2,LP,LX,M,MCHD,MDIV,MM,MP,N, &
                NC,NH,NI,NP,NS,numResPairs
+    real(8) :: r_0, phi_0
 
     allocate(SS(100),STT(100),ZST(101),ZSG(101),ZT(101),ZF0(101),GNL(8),      &
              COSE(10,4,10),SINE(10,4,10),DE(10,8,4,10),GNE(10,8,4,10),        &
@@ -118,9 +119,13 @@ subroutine musc(AP,UM,A,abundance,BE,PE,eff_temp,NL,AA,chan_rad,GG, &
         W=1.
         IF(RB(N).GT.RX(N))RB(N)=RX(N)   ! IF THE BEAM IS LARGER THAN THE SAMPLE, SET THE BEAM SIZE EQUAL TO THE SAMPLE SIZE
         IF(RB(N).LE.(0.0))RB(N)=RX(N)   ! IF THE BEAM SIZE IS SET NEGATIVE OR EQUAL TO ZERO, SET THE BEAM SIZE EQUAL TO THE SAMPLE SIZE 
-        X=RB(N)*SQRT(random())         ! SAMPLE ALONG THE BEAM RADIUS
-        Y=RB(N)*SQRT(random())
-        Z=0.
+
+        r_0 = RB(N)*sqrt(random())
+        phi_0 = 2.0d0*3.1415927*random()
+        x = r_0*cos(phi_0)
+        y = r_0*sin(phi_0)
+        z=0.
+
         TX=XN(N)
         NC=0
 !
@@ -168,7 +173,7 @@ subroutine musc(AP,UM,A,abundance,BE,PE,eff_temp,NL,AA,chan_rad,GG, &
                     CT=C0*ETA/GT
                     CG=CT*GNS*GGE(NC,L1,I)/GT
 !
-                    CALL PFCN(XI,ETA,UU,VV,KZ)
+                    CALL wofz(XI,ETA,UU,VV)
 !
                     SCC=CG*UU
                     SN=SN+SCC
@@ -521,7 +526,7 @@ subroutine muss(AP,UM,A,abundance,BE,PE,eff_temp,NL,AA,chan_rad,GG, &
                     CT=C0*ETA/GT
                     CG=CT*GNS*GGE(NC,L1,I)/GT
 !
-                    CALL PFCN(XI,ETA,UU,VV,KZ)
+                    CALL wofz(XI,ETA,UU,VV)
 !
 !                     CAPTURE CROSS SECTION
                     SCC=CG*UU
@@ -814,7 +819,7 @@ subroutine moct(AP,UM,A,abundance,BE,PE,eff_temp,NL,AA,chan_rad,GG,R,EFF,J2X,J2N
                 CT=C0*ETA/GT
                 CG=CT*GNS*GGE(L1,I)/GT
             !
-                CALL PFCN(XI,ETA,UU,VV,KZ)
+                CALL wofz(XI,ETA,UU,VV)
             !
             !           CAPTURE CROSS SECTION
                 SCC=CG*UU
